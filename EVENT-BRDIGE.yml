@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'This project is a list of event
+  bridge rules as cloudformation. All event bridge
+  rules must be created using IaC. Teams should
+  consider adding this to their definition of done
+  when create event bridge rules'
+Parameters:
+  
+  ConfigStoreCodebuildArn:
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /cicd/te-event-bridge/prd/app-config/shared/config-store-codebuild-arn
+    Description: config store codebuild arn
+
+  VerGvilTestsCodebuildArn:
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /cicd/te-event-bridge/prd/app-config/shared/ver-gvil-tests-codebuild-arn
+    Description: ver-gvil-tests codebuild arn 
+
+  DogFoodingGvilTestsCodebuildArn:
+    Type : 'AWS::SSM::Parameter::Value<String>'
+    Default: /cicd/te-event-bridge/prd/app-config/shared/dogfooding-gvil-tests-codebuild-arn
+    Description: dogFooding-gvil-tests codebuild arn  
+
+  RoleStackName:
+    Description: >-
+      Name of an active CloudFormation stack that contains the roles
+      resources that will be used in this stack.
+    Type: String
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: '^[a-zA-Z][-a-zA-Z0-9]*$'
+Resources:
+
+#################################################################################
+#
+# This section is where you will write your rules
+#
+#################################################################################                  
+
+  RunCodebuildConfigStore:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: 'config-store-nightly-job'
+      Description: Periodically runs codebuild job to fix defunct config store values
+      ScheduleExpression: cron(0 12 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref ConfigStoreCodebuildArn
+          Id: CodeBuildProject
+          RoleArn: 
+            !ImportValue 
+              'Fn::Sub': '${RoleStackName}-RunCodeBuildJobRoleARN'
+
+  RunCodebuildGvilTestsVer:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: 'gvil-tests-ver'
+      Description: runs gvil-tests codebuild job in verification environment at 10 AM EST daily on weekdays
+      #everyday at 10 PM EST
+      ScheduleExpression: cron(0 14 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref VerGvilTestsCodebuildArn
+          Id: CodeBuildProject
+          RoleArn: 
+            !ImportValue 
+              'Fn::Sub': '${RoleStackName}-RunCodeBuildJobRoleARN'
+
+  RunCodebuildGvilTestsDogFooding:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: 'gvil-tests-dogfooding-tenant'
+      Description: runs gvil-tests codebuild job in DogFooding environment at 5 AM EST daily on weekdays
+      #everyday at 6 PM EST
+      ScheduleExpression: cron(0 9 * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !Ref DogFoodingGvilTestsCodebuildArn
+          Id: CodeBuildProject
+          RoleArn: 
+            !ImportValue 
+              'Fn::Sub': '${RoleStackName}-RunCodeBuildJobRoleARN'
+
+
+# Outputs:
